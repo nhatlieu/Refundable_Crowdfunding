@@ -30,19 +30,16 @@ contract ProjectCreation is UserRegistration {
     mapping(address => Project[]) public projects;
 
     function createProject(string memory _name, uint _amount, uint _deadline) public {
-        Project memory newProject;
+        Project storage newProject = projects[msg.sender].push();
         newProject.owner = msg.sender;
         newProject.projectId = projectNum;
         newProject.projectName = _name;
         newProject.fundingGoal = _amount;
         newProject.deadline = _deadline;
         
-        projects[msg.sender].push(newProject);
-        
         projectNum ++;
         emit ProjectCreated(projectNum, msg.sender, _name, _amount, _deadline);
     }
-
 
     function fillMilestone(uint _projectId, string memory _description, uint _date, uint _amount) public {
         Project[] storage userProjects = projects[msg.sender];
@@ -145,4 +142,5 @@ contract ProjectCreation is UserRegistration {
         milestoneToEdit.releasedAmount = _amount;
         emit MilestoneEdited(_projectId);
     }
+        
 }
