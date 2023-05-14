@@ -142,5 +142,17 @@ contract ProjectCreation is UserRegistration {
         milestoneToEdit.releasedAmount = _amount;
         emit MilestoneEdited(_projectId);
     }
+    
+    
+    function getProjectBasicInfo(uint _projectIndex) public view returns(address, uint, string memory, uint, uint) {
+        Project storage project = projects[msg.sender][_projectIndex];
+        return (project.owner, project.projectId, project.projectName, project.fundingGoal, project.deadline);
+    }
+
+    function getProjectMilestone(uint _projectIndex, uint _milestoneIndex) public view returns(string memory, uint, uint) {
+        Milestone storage milestone = projects[msg.sender][_projectIndex].milestones[_milestoneIndex];
+        return (milestone.description, milestone.targetDate, milestone.releasedAmount);
+    }
+        
         
 }
