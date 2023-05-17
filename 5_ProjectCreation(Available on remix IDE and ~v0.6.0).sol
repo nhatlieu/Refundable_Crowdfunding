@@ -31,6 +31,7 @@ contract ProjectCreation is UserRegistration {
         uint fundingGoal;
         uint deadline;
         bool isDeleted; // Marks if a project has been deleted
+        uint totalContribution; // Total amount of money contributed
         Milestone[] milestones; // Array to hold the milestones of the project
     }
 
