@@ -36,16 +36,16 @@ contract ProjectCreation is UserRegistration {
     }
 
     // Function to create a new project
-    function createProject(string memory _name, uint _amount, uint _deadline) public {
+    function createProject(string memory _name, uint _amount, uint _numberOfDays) public {
         Project storage newProject = projects[msg.sender].push();
         newProject.owner = msg.sender;
         newProject.projectId = projectNum;
         newProject.projectName = _name;
         newProject.fundingGoal = _amount;
-        newProject.deadline = _deadline;
+        newProject.deadline = block.timestamp + (_numberOfDays * 1 days);
         projectNum ++; // Increment the project counter
 
-        emit ProjectCreated(projectNum, msg.sender, _name, _amount, _deadline); // Emit the ProjectCreated event
+        emit ProjectCreated(projectNum, msg.sender, _name, _amount, _numberOfDays); // Emit the ProjectCreated event
     }
 
     // Function to edit an existing project
