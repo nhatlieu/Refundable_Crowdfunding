@@ -1,56 +1,54 @@
+// SPDX-FileCopyrightText: 2023 Nhat Lieu <nhatlieu@firensor.com>
+// SPDX-License-Identifier: GPL-3.0
+
 pragma solidity >=0.8.2 <0.9.0;
 
-contract UserRegistration {
-    address owner; // The owner of the contract
-    mapping(address => uint) public registeredTimes; // A mapping to keep track of the number of times a user has registered
-    mapping(address => string) public username; // A mapping to store the username of each registered user
-    
-    uint256 fee = 10000000000000000; // Fee for changing name more than 5 times
+// Importing the Ownable contract from the OpenZeppelin library
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
 
-    constructor() {
-        owner = msg.sender;
-    }
+// The UserRegistration contract inherits from the Ownable contract, and provides functionality for registering users
+contract UserRegistration is Ownable {
+    // Mapping of addresses to the number of times they have registered
+    mapping(address => uint) public registeredTimes;
+    // Mapping of addresses to usernames
+    mapping(address => string) public username;
+    // The fee required for registration after the 5th time
+    uint256 fee = 10000000000000000;
 
-    // Function to set or update a user's username
-    // Requirements:
-    // - User must not have registered or updated their username more than 4 times
+    // Event that is emitted when a user registers
+    event UserRegistered(address _address);
+
+    // Function to register a user
     function setUser(string memory _name) public payable {
-        
-        if (registeredTimes[msg.sender] > 6) {
+        // If the user has registered more than 5 times, require the registration fee
+        if (registeredTimes[msg.sender] > 5) {
             require(msg.value >= fee, "Not enough Ether provided.");
         }
-
+        // Increment the registration count for the user and set their username
+        registeredTimes[msg.sender] += 1;
         username[msg.sender] = _name;
-        registeredTimes[msg.sender]++;
+        emit UserRegistered(msg.sender);
     }
 
     // Function to get the username of the caller
-    // Returns:
-    // - The username of the caller
     function myUsername() public view returns(string memory) {
         return(username[msg.sender]);
     }
 
-    // Function to get the number of times the caller has registered or updated their username
-    // Returns:
-    // - The number of times the caller has registered or updated their username
+    // Function to get the registration count of the caller
     function myRegisteredTimes() public view returns(uint) {
         return(registeredTimes[msg.sender]);
     }
 
-    // Function to get the username of a specific user
-    // Params:
-    // - _address: The address of the user whose username we want to retrieve
-    // Returns:
-    // - The username of the user
+    // Function to get the username of a given address
     function searchUsername(address _address) public view returns(string memory) {
         return (username[_address]);
     }
 
-    // Allows the contract owner to withdraw all Ether stored in the contract
-    function withdraw() public {
-        require(msg.sender == owner, "Only the contract owner can withdraw");
-        address payable ownerTransfer;
-        ownerTransfer.transfer(address(this).balance);
+    // Function to withdraw the funds of the contract, only callable by the owner
+    function withdraw() onlyOwner public {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+        payable(owner()).transfer(balance);
     }
 }
