@@ -1,20 +1,24 @@
+// SPDX-FileCopyrightText: 2023 Nhat Lieu <nhatlieu@firensor.com>
+// SPDX-License-Identifier: GPL-3.0
+
 pragma solidity >=0.8.2 <0.9.0;
 
 import "./4_UserRegistration.sol";
 
+
 // The contract that allows users to create and manage projects
 contract ProjectCreation is UserRegistration {
-
     uint projectNum = 1; // Counter to keep track of project IDs
     mapping(address => Project[]) public projects; // Mapping from user address to array of projects
+    mapping(address => uint) public activeProjectCounts;
 
     // Events that get emitted on various actions
     event ProjectCreated(uint projectId, address owner, string projectName, uint fundingGoal, uint deadline);
     event ProjectEdited(uint projectId);
     event ProjectDeleted(uint projectId);
     event MilestoneCreated(uint projectId, string description, uint targetDate, uint releasedAmount);
-    event MilestoneEdited(uint projectId);
-    event MilestoneProposed(address from, address to, uint milestoneIndex);
+    event MilestoneEdited(uint projectId, string description, uint targetDate, uint releasedAmount);
+    event MilestoneProposed(address from, address to, uint projectid, uint milestoneIndex, string description, uint targetDate, uint releasedAmount);
 
     // Structure to hold milestone data
     struct Milestone {
@@ -35,156 +39,113 @@ contract ProjectCreation is UserRegistration {
         Milestone[] milestones; // Array to hold the milestones of the project
     }
 
+    // function to find own projects based on projectId
+    function findProject(uint _projectId) internal view returns (Project storage) {
+        Project[] storage userProjects = projects[msg.sender];
+        for (uint i = 0; i < userProjects.length; i++) {
+            if (userProjects[i].projectId == _projectId) {
+                return (userProjects[i]);
+            }
+        }
+        revert("Project not found");
+    }
+
+    // function to find other person's projects based on address and projectId
+    function findOtherProject (address _address, uint _projectId) internal view returns (Project storage) {
+        Project[] storage userProjects = projects[_address];
+        for (uint i = 0; i < userProjects.length; i++) {
+            if (userProjects[i].projectId == _projectId) {
+                return (userProjects[i]);
+            }
+        }
+        revert("Project not found");        
+    }
+
     // Function to create a new project
     function createProject(string memory _name, uint _amount, uint _numberOfDays) public {
         Project storage newProject = projects[msg.sender].push();
         newProject.owner = msg.sender;
-        newProject.projectId = projectNum;
+        newProject.projectId = projectNum++;
         newProject.projectName = _name;
         newProject.fundingGoal = _amount;
         newProject.deadline = block.timestamp + (_numberOfDays * 1 days);
-        projectNum ++; // Increment the project counter
+        activeProjectCounts[msg.sender] += 1; // Increment active project counter
 
-        emit ProjectCreated(projectNum, msg.sender, _name, _amount, _numberOfDays); // Emit the ProjectCreated event
+
+        emit ProjectCreated(projectNum, msg.sender, _name, _amount, newProject.deadline); // Emit the ProjectCreated event
     }
 
     // Function to edit an existing project
     function editProject(uint _projectId, string memory _name, uint _amount, uint _deadline) public {
-        Project[] storage userProjects = projects[msg.sender];
-        uint projectToEditIndex;
-        bool projectFound = false;
-
-        // Loop over the projects to find the one to edit
-        for (uint i = 0; i < userProjects.length; i++) {
-            if (userProjects[i].projectId == _projectId) {
-                projectToEditIndex = i;
-                projectFound = true;
-                break;
-            }
-        }
-
-        // Check that the project exists and it's not deleted, and that the user is the owner
-        require(projectFound, "Project not found");
-        require(userProjects[projectToEditIndex].isDeleted == false, "Project has been deleted");
-        require(msg.sender == userProjects[projectToEditIndex].owner, "Not the project owner");
+        Project storage projectToEdit = findProject(_projectId);
+        require(!projectToEdit.isDeleted, "Project has been deleted");
+        require(msg.sender == projectToEdit.owner, "Not the project owner");
 
         // Update the project details
-        userProjects[projectToEditIndex].projectName = _name;
-        userProjects[projectToEditIndex].fundingGoal = _amount;
-        userProjects[projectToEditIndex].deadline = _deadline;
+        projectToEdit.projectName = _name;
+        projectToEdit.fundingGoal = _amount;
+        projectToEdit.deadline = _deadline;
 
         emit ProjectEdited(_projectId); // Emit the ProjectEdited event
+
+
     }
 
     // Function to delete a project
     function deleteProject(uint _projectId) public {
-        Project[] storage userProjects = projects[msg.sender];
-        uint projectIndex;
-        bool projectFound = false;
-
-        // Loop over the projects to find the one to delete
-        for(uint i = 0; i < userProjects.length; i++) {
-            if(userProjects[i].projectId == _projectId) {
-                projectIndex =i;
-                projectFound = true;
-                break;
-            }
-        }
-
-        // Check that the project exists and that the user is the owner
-        require(projectFound, "Project not found");
-        require(msg.sender == userProjects[projectIndex].owner, "Not the project owner");
+        Project storage projectToDelete = findProject(_projectId);
+        require(!projectToDelete.isDeleted, "Project has been deleted");
+        require(msg.sender == projectToDelete.owner, "Not the project owner");
 
         // Mark the project as deleted
-        userProjects[projectIndex].isDeleted = true;
-        
+        projectToDelete.isDeleted = true;
+        activeProjectCounts[msg.sender] -= 1; // Decrease active project count
+
         emit ProjectDeleted(_projectId); // Emit the ProjectDeleted event
     }
 
     // Function to create a new milestone
     function fillMilestone(uint _projectId, string memory _description, uint _date, uint _amount) public {
-        Project[] storage userProjects = projects[msg.sender];
-        uint projectToUpdateIndex;
-        bool projectFound = false;
-
-        // Loop over the projects to find the one to update
-        for(uint i = 0; i < userProjects.length; i++) {
-            if(userProjects[i].projectId == _projectId) {
-                projectToUpdateIndex = i;
-                projectFound = true;
-                break;
-            }
-        }
-
-        // Check that the project exists, it's not deleted, and that the user is the owner
-        require(projectFound, "Project not found");
-        require(userProjects[projectToUpdateIndex].isDeleted == false, "Project has been deleted");
-        require(msg.sender == userProjects[projectToUpdateIndex].owner, "Not the project owner");
+        Project storage projectToUpdate = findProject(_projectId);
+        require(!projectToUpdate.isDeleted, "Project has been deleted");
+        require(msg.sender == projectToUpdate.owner, "Not the project owner");
 
         // Create the new milestone and add it to the project
         Milestone memory newMilestone = Milestone({description: _description, targetDate: _date, releasedAmount: _amount});
-        userProjects[projectToUpdateIndex].milestones.push(newMilestone);
+        projectToUpdate.milestones.push(newMilestone);
 
         emit MilestoneCreated(_projectId, _description, _date, _amount); // Emit the MilestoneCreated event
     }
 
     // Function to edit an existing milestone
     function editMilestone(uint _projectId, uint _milestoneIndex, string memory _description, uint _date, uint _amount) public {
-        Project[] storage userProjects = projects[msg.sender];
-        uint projectToEditIndex;
-        bool projectFound = false;
-
-        // Loop over the projects to find the one to edit
-        for(uint i = 0; i < userProjects.length; i++) {
-            if(userProjects[i].projectId == _projectId) {
-                projectToEditIndex = i;
-                projectFound = true;
-                break;
-            }
-        }
-
-        // Check that the project exists, it's not deleted, that the user is the owner, and that the milestone index is valid
-        require(projectFound, "Project not found");
-        require(userProjects[projectToEditIndex].isDeleted == false, "Project has been deleted");
-        require(msg.sender == userProjects[projectToEditIndex].owner, "Not the project owner");
-        require(_milestoneIndex < userProjects[projectToEditIndex].milestones.length, "Milestone index out of range");
+        Project storage projectToEdit = findProject(_projectId);
+        require(!projectToEdit.isDeleted, "Project has been deleted");
+        require(msg.sender == projectToEdit.owner, "Not the project owner");
+        require(_milestoneIndex < projectToEdit.milestones.length, "Milestone index out of range");
 
         // Update the milestone details
-        Milestone storage milestoneToEdit = userProjects[projectToEditIndex].milestones[_milestoneIndex];
+        Milestone storage milestoneToEdit = projectToEdit.milestones[_milestoneIndex];
         milestoneToEdit.description = _description;
         milestoneToEdit.targetDate = _date;
         milestoneToEdit.releasedAmount = _amount;
 
-        emit MilestoneEdited(_projectId); // Emit the MilestoneEdited event
+        emit MilestoneEdited(_projectId, _description, _date, _amount); // Emit the MilestoneEdited event
     }
 
     // Function to propose a milestone to another user
     function proposeMilestone(address _address, uint _projectId, uint _milestoneIndex, string memory _description, uint _date, uint _amount) public {
-        Project[] storage userProjects = projects[_address];
-        uint projectToProposeIndex;
-        bool projectFound = false;
-
-        // Loop over the projects to find the one to propose the milestone for
-        for (uint i = 0; i < userProjects.length; i++) {
-            if (userProjects[i].projectId == _projectId) {
-                projectToProposeIndex = i;
-                projectFound = true;
-                break;
-            }
-        }
-
-        // Check that the project exists, it's not deleted, and that the milestone index is valid
-        require(projectFound, "Not project found");
-        require(userProjects[projectToProposeIndex].isDeleted == false, "Project has been deleted");
-        require(_milestoneIndex < userProjects[projectToProposeIndex].milestones.length, "Milestone index out of range");
+        Project storage projectToPropose = findOtherProject(_address, _projectId);(_projectId);
+        require(!projectToPropose.isDeleted, "Project has been deleted");
+        require(_milestoneIndex < projectToPropose.milestones.length, "Milestone index out of range");
 
         // Update the proposed milestone details
-        Milestone storage newProposingMilestone = userProjects[projectToProposeIndex].milestones[_milestoneIndex];
+        Milestone storage newProposingMilestone = projectToPropose.milestones[_milestoneIndex];
         newProposingMilestone.description = _description;
         newProposingMilestone.targetDate = _date;
         newProposingMilestone.releasedAmount = _amount;
 
-        emit MilestoneProposed(msg.sender, _address, _milestoneIndex); // Emit the MilestoneProposed event
+        emit MilestoneProposed(msg.sender, _address, _projectId, _milestoneIndex, _description, _date, _amount); // Emit the MilestoneProposed event
     }    
     
     // Function to get the basic information of a project
@@ -203,13 +164,6 @@ contract ProjectCreation is UserRegistration {
     
     // Function to get the number of active projects of a user
     function retrieveActiveProjects(address _address) public view returns(uint) {
-        Project[] storage userProjects = projects[_address];
-        uint activeProjectsCount = 0;
-        for(uint i = 0; i < userProjects.length; i++) {
-            if(!userProjects[i].isDeleted) { // If the project is not deleted, count it as active
-                activeProjectsCount++;
-            }
-        }
-        return activeProjectsCount; // Return the number of active projects
+        return activeProjectCounts[_address]; // Return the number of active projects
     }
 }
