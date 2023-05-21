@@ -16,15 +16,19 @@ contract ProjectCreation is UserRegistration {
     event ProjectCreated(uint projectId, address owner, string projectName, uint fundingGoal, uint deadline);
     event ProjectEdited(uint projectId);
     event ProjectDeleted(uint projectId);
-    event MilestoneCreated(uint projectId, string description, uint targetDate, uint releasedAmount);
-    event MilestoneEdited(uint projectId, string description, uint targetDate, uint releasedAmount);
-    event MilestoneProposed(address from, address to, uint projectid, uint milestoneIndex, string description, uint targetDate, uint releasedAmount);
+    event MilestoneCreated(uint projectId, string description, uint deadline, uint releasedAmount);
+    event MilestoneEdited(uint projectId, string description, uint deadline, uint releasedAmount);
+    event MilestoneProposed(address from, address to, uint projectId, uint milestoneIndex, string description, uint deadline, uint releasedAmount);
 
     // Structure to hold milestone data
     struct Milestone {
         string description;
-        uint targetDate;
+        uint deadline;
         uint releasedAmount;
+        bool isCompleted;
+        uint completionTime;
+        uint confirmationNum;
+        bool isConfirmed;
     }
 
     // Structure to hold project data
@@ -111,7 +115,7 @@ contract ProjectCreation is UserRegistration {
         require(msg.sender == projectToUpdate.owner, "Not the project owner");
 
         // Create the new milestone and add it to the project
-        Milestone memory newMilestone = Milestone({description: _description, targetDate: _date, releasedAmount: _amount});
+        Milestone memory newMilestone = Milestone({description: _description, deadline:block.timestamp + (_date * 1 days), releasedAmount: _amount, isCompleted: false, completionTime: 0, confirmationNum: 0, isConfirmed: false});
         projectToUpdate.milestones.push(newMilestone);
 
         emit MilestoneCreated(_projectId, _description, _date, _amount); // Emit the MilestoneCreated event
@@ -127,7 +131,7 @@ contract ProjectCreation is UserRegistration {
         // Update the milestone details
         Milestone storage milestoneToEdit = projectToEdit.milestones[_milestoneIndex];
         milestoneToEdit.description = _description;
-        milestoneToEdit.targetDate = _date;
+        milestoneToEdit.deadline = block.timestamp + (_date * 1 days);
         milestoneToEdit.releasedAmount = _amount;
 
         emit MilestoneEdited(_projectId, _description, _date, _amount); // Emit the MilestoneEdited event
@@ -135,14 +139,14 @@ contract ProjectCreation is UserRegistration {
 
     // Function to propose a milestone to another user
     function proposeMilestone(address _address, uint _projectId, uint _milestoneIndex, string memory _description, uint _date, uint _amount) public {
-        Project storage projectToPropose = findOtherProject(_address, _projectId);(_projectId);
+        Project storage projectToPropose = findOtherProject(_address, _projectId);
         require(!projectToPropose.isDeleted, "Project has been deleted");
         require(_milestoneIndex < projectToPropose.milestones.length, "Milestone index out of range");
 
         // Update the proposed milestone details
         Milestone storage newProposingMilestone = projectToPropose.milestones[_milestoneIndex];
         newProposingMilestone.description = _description;
-        newProposingMilestone.targetDate = _date;
+        newProposingMilestone.deadline =block.timestamp + (_date * 1 days);
         newProposingMilestone.releasedAmount = _amount;
 
         emit MilestoneProposed(msg.sender, _address, _projectId, _milestoneIndex, _description, _date, _amount); // Emit the MilestoneProposed event
@@ -159,7 +163,7 @@ contract ProjectCreation is UserRegistration {
     function getProjectMilestone(address _owner, uint _projectIndex, uint _milestoneIndex) public view returns(string memory, uint, uint) {
         require(!projects[_owner][_projectIndex].isDeleted, "Project has been deleted"); // Check that the project isn't deleted
         Milestone storage milestone = projects[_owner][_projectIndex].milestones[_milestoneIndex]; // Get the milestone
-        return (milestone.description, milestone.targetDate, milestone.releasedAmount); // Return the milestone details
+        return (milestone.description, milestone.deadline, milestone.releasedAmount); // Return the milestone details
     }
     
     // Function to get the number of active projects of a user
