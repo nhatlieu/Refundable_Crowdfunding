@@ -9,11 +9,10 @@ import "./5_ProjectCreation.sol";
 // The Funding contract inherits from the ProjectCreation contract
 contract Funding is ProjectCreation {
 
-    // SafeMath library used for arithmetic operations
-    using SafeMath for uint256;
-
     // Event emitted when a project is funded
     event Funded(uint projectId, address contributor, uint amount);
+
+    mapping(address => mapping(uint => uint)) public totalFunder;
 
     // Mapping to store the total contribution for each project from each owner
     mapping(address => mapping(uint => uint)) public totalContribution;
@@ -33,6 +32,8 @@ contract Funding is ProjectCreation {
         projectToFund.totalContribution += _amount;
         totalContribution[_owner][_projectId] += _amount;
         contribution[msg.sender][_owner][_projectId] += _amount;
+        totalFunder[_owner][_projectId] ++;
+
         emit Funded(_projectId, msg.sender, _amount);
     }
 
@@ -79,7 +80,7 @@ contract Funding is ProjectCreation {
     }
 
     // Function to check a user's contribution to a specific project
-    function myContribution(address _owner, uint _projectId) public view returns(uint) {
+    function myContribution(address _owner, uint _projectId) internal view returns(uint) {
         return (contribution[msg.sender][_owner][_projectId]);
     }
 
