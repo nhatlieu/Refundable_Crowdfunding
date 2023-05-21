@@ -16,7 +16,7 @@ contract UserRegistration is Ownable {
     uint256 fee = 10000000000000000;
 
     // Event that is emitted when a user registers
-    event UserRegistered(address _address);
+    event UserRegistered(address _address, string _name);
 
     // Function to register a user
     function setUser(string memory _name) public payable {
@@ -27,7 +27,7 @@ contract UserRegistration is Ownable {
         // Increment the registration count for the user and set their username
         registeredTimes[msg.sender] += 1;
         username[msg.sender] = _name;
-        emit UserRegistered(msg.sender);
+        emit UserRegistered(msg.sender, _name);
     }
 
     // Function to get the username of the caller
